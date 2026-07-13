@@ -3,7 +3,7 @@
 //   Caches all app files for offline use
 // ============================================================
 
-const CACHE_NAME = 'afrah-v2';
+const CACHE_NAME = 'afrah-v3';
 const ASSETS = [
   './',
   './index.html',
@@ -19,7 +19,6 @@ self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
       return cache.addAll(ASSETS).catch(() => {
-        // Fonts may fail in some environments, that's OK
         return cache.addAll(ASSETS.filter(a => !a.includes('googleapis')));
       });
     })
@@ -37,23 +36,19 @@ self.addEventListener('activate', e => {
   self.clients.claim();
 });
 
-// Fetch: serve from cache first, fallback to network
+// Fetch: network-first, fallback to cache
 self.addEventListener('fetch', e => {
-  // Skip non-GET and cross-origin requests we can't cache
   if (e.request.method !== 'GET') return;
-
   e.respondWith(
-    caches.match(e.request).then(cached => {
-      if (cached) return cached;
-      return fetch(e.request).then(response => {
-        // Cache successful same-origin responses
-        if (response && response.status === 200 && response.type === 'basic') {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
-        }
-        return response;
-      }).catch(() => {
-        // Offline fallback: return the cached index.html
+    fetch(e.request).then(response => {
+      if (response && response.status === 200 && response.type === 'basic') {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
+      }
+      return response;
+    }).catch(() => {
+      return caches.match(e.request).then(cached => {
+        if (cached) return cached;
         if (e.request.destination === 'document') {
           return caches.match('./index.html');
         }
