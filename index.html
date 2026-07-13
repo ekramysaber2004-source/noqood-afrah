@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>نقود الأفراح 💍</title>
+  <meta name="description" content="برنامج تسجيل وإدارة نقود الأفراح والهدايا" />
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#f4c430" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="نقود أفراح" />
+  <link rel="apple-touch-icon" href="icon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="bg-deco" aria-hidden="true">
+    <span class="d1">💍</span><span class="d2">🌸</span>
+    <span class="d3">✨</span><span class="d4">💐</span><span class="d5">💍</span>
+  </div>
+  <header class="header">
+    <div class="hc">
+      <div class="hico">💍</div>
+      <div class="htext">
+        <h1 class="htitle">نقود الأفراح</h1>
+        <p class="hsub">تسجيل وإدارة هدايا الجواز</p>
+        <span id="syncStatus" style="font-size:0.75rem; color:#94a3b8; display:inline-flex; align-items:center; gap:0.25rem;">☁️ جاري المزامنة...</span>
+      </div>
+      <button class="install-btn" id="installBtn" style="display:none" onclick="installApp()">📲 تثبيت</button>
+    </div>
+  </header>
+  <div class="workspace-bar">
+    <span class="wlabel">📒 الدفتر الحالي:</span>
+    <div class="wtabs">
+      <button class="wtab active" id="wtab-krami" onclick="switchWorkspace('krami')">🤵 دفتر إكرامي</button>
+      <button class="wtab" id="wtab-fatima" onclick="switchWorkspace('fatima')">👰 دفتر فاطمة</button>
+      <button class="wtab" id="wtab-all" onclick="switchWorkspace('all')">💍 الدفتر المشترك</button>
+    </div>
+  </div>
+  <section class="stats-wrap" id="statsWrap">
+    <div class="sc total-card"><span class="si">💰</span><div><span class="sl">إجمالي النقود</span><span class="sv" id="sTotal">0</span><span class="su">جنيه</span></div></div>
+    <div class="sc groom-card"><span class="si">🤵</span><div><span class="sl">إكرامي (العريس)</span><span class="sv" id="sGroom">0</span><span class="su">جنيه</span></div></div>
+    <div class="sc bride-card"><span class="si">👰</span><div><span class="sl">فاطمة (العروسة)</span><span class="sv" id="sBride">0</span><span class="su">جنيه</span></div></div>
+    <div class="sc count-card"><span class="si">👥</span><div><span class="sl">عدد المُهدِين</span><span class="sv" id="sCount">0</span><span class="su">شخص</span></div></div>
+    <div class="sc returned-card"><span class="si">💸</span><div><span class="sl">دفعت لهم</span><span class="sv" id="sReturned">0</span><span class="su">جنيه</span></div></div>
+    <div class="sc pending-card"><span class="si">⏳</span><div><span class="sl">لم تدفع لهم بعد</span><span class="sv" id="sPending">0</span><span class="su">شخص</span></div></div>
+    <div class="sc balance-card"><span class="si">⚖️</span><div><span class="sl">صافي الفرق</span><span class="sv" id="sBalance">0</span><span class="su">جنيه</span></div></div>
+  </section>
+  <main class="main">
+    <div class="cbar">
+      <div class="sbox"><span>🔍</span><input id="searchInput" type="text" placeholder="ابحث بالاسم أو المناسبة..." oninput="render()" /></div>
+      <div class="ftabs">
+        <button class="ftab active" id="ftab-all" onclick="setFilter('all')">الكل</button>
+        <button class="ftab" id="ftab-krami" onclick="setFilter('krami')">🤵 إكرامي</button>
+        <button class="ftab" id="ftab-fatima" onclick="setFilter('fatima')">👰 فاطمة</button>
+        <button class="ftab" id="ftab-pending" onclick="setFilter('pending')">⏳ لم تدفع</button>
+        <button class="ftab" id="ftab-done" onclick="setFilter('done')">✅ دفعت</button>
+        <button class="ftab" id="ftab-overpaid" onclick="setFilter('overpaid')">🟢 دفعت أكتر</button>
+      </div>
+      <div class="abtns">
+        <button class="abtn add" onclick="openAdd()">＋ إضافة</button>
+        <button class="abtn import" onclick="openImport()">📥 استيراد</button>
+      </div>
+    </div>
+    <div class="twrap">
+      <div class="tscroll">
+        <table id="tbl">
+          <thead><tr><th>#</th><th>الاسم</th><th>أخذت منه</th><th>الجانب</th><th>المناسبة</th><th>الحالة</th><th>دفعت له</th><th>الفرق 💡</th><th>ملاحظة</th><th>إجراء</th></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <div class="empty" id="emptyMsg" style="display:none"><p>📋 لا توجد نتائج. جرب تغيير الفلتر أو البحث.</p></div>
+    </div>
+    <div class="ebar">
+      <button class="ebtn" onclick="exportCSV()">📊 تصدير Excel</button>
+      <button class="ebtn" onclick="window.print()">🖨️ طباعة</button>
+      <button class="ebtn danger" onclick="clearAll()">🗑️ مسح الكل</button>
+    </div>
+  </main>
+  <div class="ov" id="ovMain" onclick="ovClick(event,'ovMain','closeAdd')">
+    <div class="modal" id="modMain">
+      <div class="mhdr"><h2 id="modTitle">إضافة شخص جديد</h2><button onclick="closeAdd()">✕</button></div>
+      <form id="mainForm" onsubmit="saveMain(event)">
+        <input type="hidden" id="fId" />
+        <div class="fg"><label>الاسم</label><input id="fName" required placeholder="الاسم كاملاً" /></div>
+        <div class="fg"><label>المبلغ (جنيه)</label><input id="fAmount" type="number" min="1" required placeholder="0" /></div>
+        <div class="fg"><label>الجانب</label><select id="fSide" required><option value="">-- اختر --</option><option value="krami">🤵 إكرامي (العريس)</option><option value="fatima">👰 فاطمة (العروسة)</option></select></div>
+        <div class="fg"><label>المناسبة</label><input id="fOccasion" placeholder="مثال: زفاف 2026، عرس أخت..." list="occasionList" /><datalist id="occasionList"></datalist></div>
+        <div class="fg"><label>ملاحظة (اختياري)</label><input id="fNote" placeholder="أي ملاحظة..." /></div>
+        <div class="fbtns"><button type="submit" class="sbtn">💾 حفظ</button><button type="button" class="cbtn" onclick="closeAdd()">إلغاء</button></div>
+      </form>
+    </div>
+  </div>
+  <div class="ov" id="ovReceive" onclick="ovClick(event,'ovReceive','closeReceive')">
+    <div class="modal" id="modReceive">
+      <div class="mhdr"><h2>💰 استلام نقود جديدة</h2><button onclick="closeReceive()">✕</button></div>
+      <div id="receiveInfo" class="rinfo"></div>
+      <form id="receiveForm" onsubmit="saveReceive(event)">
+        <input type="hidden" id="recPersonId" />
+        <div class="fg"><label>المبلغ المستلم (جنيه)</label><input id="recAmount" type="number" min="1" placeholder="0" required /></div>
+        <div class="fg"><label>المناسبة</label><input id="recOccasion" placeholder="مثال: طهور ابنه، عقيقة، فرحه..." required list="occasionList" /></div>
+        <div class="fg"><label>التاريخ</label><input id="recDate" type="date" /></div>
+        <div class="fg"><label>ملاحظة الاستلام</label><input id="recNote" placeholder="أي ملاحظة إضافية..." /></div>
+        <div class="fbtns"><button type="submit" class="sbtn">✅ تسجيل الاستلام</button><button type="button" class="cbtn" onclick="closeReceive()">إلغاء</button></div>
+      </form>
+      <div id="receiveHistory" class="rhist"></div>
+    </div>
+  </div>
+  <div class="ov" id="ovReturn" onclick="ovClick(event,'ovReturn','closeReturn')">
+    <div class="modal" id="modReturn">
+      <div class="mhdr"><h2>🔄 رد الفلوس</h2><button onclick="closeReturn()">✕</button></div>
+      <div id="returnInfo" class="rinfo"></div>
+      <form id="returnForm" onsubmit="saveReturn(event)">
+        <input type="hidden" id="rId" />
+        <div class="fg"><label>مبلغ الرد (جنيه)</label><input id="rAmount" type="number" min="0" placeholder="0" required /></div>
+        <div class="fg"><label>تاريخ الرد</label><input id="rDate" type="date" /></div>
+        <div class="fg"><label>ملاحظة الرد</label><input id="rNote" placeholder="مثال: رددت في فرح خالد..." /></div>
+        <div class="fbtns"><button type="submit" class="sbtn">✅ تأكيد الرد</button><button type="button" class="cbtn" onclick="closeReturn()">إلغاء</button></div>
+      </form>
+      <div id="returnHistory" class="rhist"></div>
+    </div>
+  </div>
+  <div class="ov" id="ovHistory" onclick="ovClick(event,'ovHistory','closeHistory')">
+    <div class="modal wide-modal" id="modHistory">
+      <div class="mhdr"><h2 id="histTitle">📋 سجل الدفعات</h2><button onclick="closeHistory()">✕</button></div>
+      <div class="hist-person-bar" id="histPersonBar"></div>
+      <div class="hist-timeline" id="histTimeline"></div>
+      <div class="hist-total" id="histTotal"></div>
+      <div class="fbtns" style="margin-top:1.2rem"><button class="sbtn" id="histPayBtn">💸 دفعة جديدة</button><button class="cbtn" onclick="closeHistory()">إغلاق</button></div>
+    </div>
+  </div>
+  <div class="ov" id="ovImport" onclick="ovClick(event,'ovImport','closeImport')">
+    <div class="modal wide-modal" id="modImport">
+      <div class="mhdr"><h2>📥 استيراد البيانات</h2><button onclick="closeImport()">✕</button></div>
+      <div class="imp-body">
+        <p class="idesc">كل سطر = سجل واحد بالتنسيق:</p>
+        <code class="iex">الاسم , المبلغ , krami أو fatima , المناسبة (اختياري) , ملاحظة (اختياري)</code>
+        <textarea id="impTxt" placeholder="محمد علي , 200 , krami , زفاف 2026&#10;سارة أحمد , 500 , fatima , زفاف 2026"></textarea>
+        <div class="fbtns">
+          <button class="sbtn" onclick="doImport()">📥 استيراد</button>
+          <button class="sbtn gold" onclick="loadImageData()">📋 تحميل بيانات الصورة</button>
+          <button class="cbtn" onclick="closeImport()">إلغاء</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="toast" class="toast" aria-live="polite"></div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="app.js"></script>
+</body>
+</html>
