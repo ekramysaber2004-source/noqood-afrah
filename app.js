@@ -21,11 +21,16 @@ let activeFilter = 'all';
 
 // ── Deletion Tracking for Offline-to-Online Sync ──────────────
 function getDeletions() {
+  let d;
   try {
-    return JSON.parse(localStorage.getItem(DELETIONS_KEY)) || { people: [], payments: [], received: [] };
+    d = JSON.parse(localStorage.getItem(DELETIONS_KEY)) || {};
   } catch {
-    return { people: [], payments: [], received: [] };
+    d = {};
   }
+  if (!d.people) d.people = [];
+  if (!d.payments) d.payments = [];
+  if (!d.received) d.received = [];
+  return d;
 }
 
 function trackPersonDeletion(id) {
