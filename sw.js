@@ -3,7 +3,7 @@
 //   Caches all app files for offline use
 // ============================================================
 
-const CACHE_NAME = 'afrah-v4';
+const CACHE_NAME = 'afrah-v5';
 const ASSETS = [
   './',
   './index.html',
@@ -41,8 +41,9 @@ self.addEventListener('activate', e => {
 
 // Fetch: serve from cache first, fallback to network
 self.addEventListener('fetch', e => {
-  // Skip non-GET and cross-origin requests we can't cache
+  // Skip non-GET and cross-origin requests we can't cache, and skip Supabase endpoints
   if (e.request.method !== 'GET') return;
+  if (e.request.url.includes('supabase.co')) return;
 
   e.respondWith(
     caches.match(e.request).then(cached => {
