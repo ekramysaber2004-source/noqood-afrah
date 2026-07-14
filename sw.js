@@ -3,7 +3,7 @@
 //   Caches all app files for offline use
 // ============================================================
 
-const CACHE_NAME = 'afrah-v3';
+const CACHE_NAME = 'afrah-v4';
 const ASSETS = [
   './',
   './index.html',
@@ -12,6 +12,8 @@ const ASSETS = [
   './manifest.json',
   './icon.svg',
   'https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&display=swap',
+  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
+  'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
 ];
 
 // Install: cache all assets
@@ -19,6 +21,7 @@ self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
       return cache.addAll(ASSETS).catch(() => {
+        // Fonts may fail in some environments, that's OK
         return cache.addAll(ASSETS.filter(a => !a.includes('googleapis')));
       });
     })
@@ -36,19 +39,23 @@ self.addEventListener('activate', e => {
   self.clients.claim();
 });
 
-// Fetch: network-first, fallback to cache
+// Fetch: serve from cache first, fallback to network
 self.addEventListener('fetch', e => {
+  // Skip non-GET and cross-origin requests we can't cache
   if (e.request.method !== 'GET') return;
+
   e.respondWith(
-    fetch(e.request).then(response => {
-      if (response && response.status === 200 && response.type === 'basic') {
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
-      }
-      return response;
-    }).catch(() => {
-      return caches.match(e.request).then(cached => {
-        if (cached) return cached;
+    caches.match(e.request).then(cached => {
+      if (cached) return cached;
+      return fetch(e.request).then(response => {
+        // Cache successful same-origin responses
+        if (response && response.status === 200 && response.type === 'basic') {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
+        }
+        return response;
+      }).catch(() => {
+        // Offline fallback: return the cached index.html
         if (e.request.destination === 'document') {
           return caches.match('./index.html');
         }
