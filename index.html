@@ -276,13 +276,103 @@
         <h2>📥 استيراد البيانات</h2>
         <button onclick="closeImport()">✕</button>
       </div>
-      <div class="imp-body">
+
+      <!-- Import Mode Tabs -->
+      <div class="import-tabs">
+        <button class="import-tab active" id="itab-excel" onclick="switchImportTab('excel')">📁 ملف Excel / CSV</button>
+        <button class="import-tab" id="itab-text" onclick="switchImportTab('text')">✍️ لصق نصي مباشر</button>
+      </div>
+
+      <!-- Tab 1: Excel File -->
+      <div class="imp-body" id="tabContent-excel">
+        <div class="file-drop-zone" id="fileDropZone" onclick="document.getElementById('excelFileInput').click()">
+          <div class="fdz-icon">📊</div>
+          <h3>اسحب وأفلت ملف Excel (.xlsx, .xls) أو CSV هنا</h3>
+          <p>أو اضغط لتصفح الملفات من جهازك</p>
+          <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv" style="display:none" onchange="handleExcelFileSelect(event)" />
+        </div>
+
+        <!-- Excel mapping & preview (Hidden initially) -->
+        <div id="excelMappingSection" style="display:none; margin-top: 1.5rem;">
+          <div class="excel-info-card">
+            <div>📄 الملف: <strong id="loadedFileName">data.xlsx</strong></div>
+            <div>📊 الصفوف: <strong id="loadedRowsCount">0</strong></div>
+          </div>
+
+          <h3 class="section-title">⚙️ مطابقة أعمدة الجدول:</h3>
+          <div class="mapping-grid">
+            <div class="fg">
+              <label>الاسم كاملاً <span class="req">*</span></label>
+              <select id="mapName" class="map-select" onchange="updateExcelPreview()"></select>
+            </div>
+            <div class="fg">
+              <label>المبلغ (جنيه) <span class="req">*</span></label>
+              <select id="mapAmount" class="map-select" onchange="updateExcelPreview()"></select>
+            </div>
+            <div class="fg">
+              <label>الدفتر / الجانب</label>
+              <select id="mapSide" class="map-select" onchange="updateExcelPreview()"></select>
+            </div>
+            <div class="fg">
+              <label>المناسبة</label>
+              <select id="mapOccasion" class="map-select" onchange="updateExcelPreview()"></select>
+            </div>
+            <div class="fg">
+              <label>ملاحظة</label>
+              <select id="mapNote" class="map-select" onchange="updateExcelPreview()"></select>
+            </div>
+          </div>
+
+          <h3 class="section-title">🛠️ خيارات الاستيراد:</h3>
+          <div class="options-grid">
+            <div class="fg-row">
+              <input type="checkbox" id="excelMergeExisting" checked />
+              <label for="excelMergeExisting">دمج الهدايا مع الأسماء المتطابقة بالدفتر (يمنع التكرار)</label>
+            </div>
+            <div class="fg">
+              <label>الجانب الافتراضي (إذا لم يحدد بالملف)</label>
+              <select id="excelDefaultSide" onchange="updateExcelPreview()">
+                <option value="krami">🤵 دفتر إكرامي</option>
+                <option value="fatima">👰 دفتر فاطمة</option>
+              </select>
+            </div>
+            <div class="fg">
+              <label>المناسبة الافتراضية (إذا لم تحدد بالملف)</label>
+              <input id="excelDefaultOccasion" placeholder="مثال: زفاف إكرامي وفاطمة" value="زفاف إكرامي وفاطمة" oninput="updateExcelPreview()" />
+            </div>
+          </div>
+
+          <h3 class="section-title">👁️ معاينة أول 3 صفوف:</h3>
+          <div class="twrap preview-twrap">
+            <table class="preview-table">
+              <thead>
+                <tr>
+                  <th>الاسم</th>
+                  <th>المبلغ</th>
+                  <th>الدفتر</th>
+                  <th>المناسبة</th>
+                  <th>الملاحظة</th>
+                </tr>
+              </thead>
+              <tbody id="excelPreviewBody"></tbody>
+            </table>
+          </div>
+
+          <div class="fbtns" style="margin-top:1.5rem">
+            <button class="sbtn" onclick="importMappedExcelData()">📥 إتمام الاستيراد</button>
+            <button class="cbtn" onclick="resetExcelImport()">❌ إلغاء وتغيير الملف</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 2: Text Paste -->
+      <div class="imp-body" id="tabContent-text" style="display:none">
         <p class="idesc">كل سطر = سجل واحد بالتنسيق:</p>
         <code class="iex">الاسم , المبلغ , krami أو fatima , المناسبة (اختياري) , ملاحظة (اختياري)</code>
         <textarea id="impTxt"
           placeholder="محمد علي , 200 , krami , زفاف 2026&#10;سارة أحمد , 500 , fatima , زفاف 2026"></textarea>
         <div class="fbtns">
-          <button class="sbtn" onclick="doImport()">📥 استيراد</button>
+          <button class="sbtn" onclick="doImport()">📥 استيراد نصي</button>
           <button class="sbtn gold" onclick="loadImageData()">📋 تحميل بيانات الصورة</button>
           <button class="cbtn" onclick="closeImport()">إلغاء</button>
         </div>
@@ -294,6 +384,7 @@
   <div id="toast" class="toast" aria-live="polite"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
