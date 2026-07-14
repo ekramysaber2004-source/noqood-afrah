@@ -886,13 +886,350 @@ function delFromHistory(rid, xid) {
   toast('🗑️ تم حذف الدفعة');
 }
 
-// ── Import Modal ─────────────────────────────────────────────
-function openImport() { openOv('ovImport'); }
-function closeImport() { closeOv('ovImport'); }
+// ── Import Modal & Tabs ───────────────────────────────────────
+let parsedExcelRows = [];
+let parsedExcelHeaders = [];
+
+function openImport() {
+  resetExcelImport();
+  // Reset tabs to excel by default
+  switchImportTab('excel');
+  openOv('ovImport');
+  
+  // Set up drop zone drag-and-drop event listeners
+  const dropZone = document.getElementById('fileDropZone');
+  if (dropZone) {
+    // Prevent default drag behaviors
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+      dropZone.addEventListener(eventName, e => {
+        e.preventDefault();
+        e.stopPropagation();
+      }, false);
+    });
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropZone.addEventListener(eventName, () => {
+        dropZone.classList.add('dragover');
+      }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropZone.addEventListener(eventName, () => {
+        dropZone.classList.remove('dragover');
+      }, false);
+    });
+
+    dropZone.addEventListener('drop', e => {
+      const dt = e.dataTransfer;
+      const files = dt.files;
+      if (files.length) {
+        const fileInput = document.getElementById('excelFileInput');
+        if (fileInput) {
+          fileInput.files = files;
+          handleExcelFileSelect({ target: { files } });
+        }
+      }
+    }, false);
+  }
+}
+
+function closeImport() {
+  closeOv('ovImport');
+  resetExcelImport();
+}
+
+function switchImportTab(tab) {
+  document.querySelectorAll('.import-tab').forEach(b => b.classList.remove('active'));
+  
+  const contentExcel = document.getElementById('tabContent-excel');
+  const contentText = document.getElementById('tabContent-text');
+  
+  if (contentExcel) contentExcel.style.display = 'none';
+  if (contentText) contentText.style.display = 'none';
+  
+  const activeTabBtn = document.getElementById('itab-' + tab);
+  if (activeTabBtn) activeTabBtn.classList.add('active');
+  
+  const contentEl = document.getElementById('tabContent-' + tab);
+  if (contentEl) contentEl.style.display = 'block';
+}
+
+function handleExcelFileSelect(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    try {
+      const data = new Uint8Array(evt.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      
+      // Parse as 2D array: header: 1 returns array of arrays, defval: "" covers empty cells
+      const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+      
+      // Filter out completely empty rows
+      const validRows = rawRows.filter(row => row.some(cell => String(cell).trim() !== ""));
+      
+      if (validRows.length < 2) {
+        toast('⚠️ الملف فارغ أو لا يحتوي على صفوف بيانات كافية');
+        return;
+      }
+
+      parsedExcelHeaders = validRows[0].map((h, i) => String(h).trim() || `العمود ${i + 1}`);
+      parsedExcelRows = validRows.slice(1);
+      
+      document.getElementById('loadedFileName').textContent = file.name;
+      document.getElementById('loadedRowsCount').textContent = parsedExcelRows.length;
+
+      // Populate Column Selects
+      populateMappingSelects();
+      
+      // Show Mapping & Hide Drop Zone
+      document.getElementById('fileDropZone').style.display = 'none';
+      document.getElementById('excelMappingSection').style.display = 'block';
+      
+      // Guess columns
+      autoGuessExcelMappings();
+      
+      // Render Preview
+      updateExcelPreview();
+      
+    } catch (err) {
+      console.error(err);
+      toast('⚠️ حدث خطأ أثناء قراءة ملف الاكسل');
+    }
+  };
+  
+  reader.readAsArrayBuffer(file);
+}
+
+function populateMappingSelects() {
+  const selects = ['mapName', 'mapAmount', 'mapSide', 'mapOccasion', 'mapNote'];
+  selects.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    
+    // Clear old options
+    el.innerHTML = '';
+    
+    // For optional fields, add an empty/skipped option
+    if (id === 'mapSide' || id === 'mapOccasion' || id === 'mapNote') {
+      const opt = document.createElement('option');
+      opt.value = '-1';
+      opt.textContent = '-- تجاهل أو استخدم الافتراضي --';
+      el.appendChild(opt);
+    } else {
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = '-- اختر العمود --';
+      el.appendChild(opt);
+    }
+    
+    // Populate column options
+    parsedExcelHeaders.forEach((header, index) => {
+      const opt = document.createElement('option');
+      opt.value = index;
+      opt.textContent = `${header} (العمود ${index + 1})`;
+      el.appendChild(opt);
+    });
+  });
+}
+
+function autoGuessExcelMappings() {
+  const guess = (keywords, selectsId) => {
+    const idx = parsedExcelHeaders.findIndex(h => {
+      const lowerH = h.toLowerCase().replace(/\s+/g, '');
+      return keywords.some(k => lowerH.includes(k) || k.includes(lowerH));
+    });
+    const el = document.getElementById(selectsId);
+    if (el && idx !== -1) {
+      el.value = idx;
+    }
+  };
+
+  guess(['الاسم', 'اسم', 'name', 'كامل'], 'mapName');
+  guess(['المبلغ', 'القيمة', 'الفلوس', 'amount', 'value', 'جنيه', 'فلوس'], 'mapAmount');
+  guess(['الجانب', 'الدفتر', 'الطرف', 'side', 'type', 'دفتر'], 'mapSide');
+  guess(['المناسبة', 'المناسبه', 'occasion', 'البيان'], 'mapOccasion');
+  guess(['ملاحظة', 'ملاحظات', 'note', 'notes'], 'mapNote');
+}
+
+function updateExcelPreview() {
+  const mapNameIdx = document.getElementById('mapName').value;
+  const mapAmtIdx = document.getElementById('mapAmount').value;
+  const mapSideIdx = document.getElementById('mapSide').value;
+  const mapOccIdx = document.getElementById('mapOccasion').value;
+  const mapNoteIdx = document.getElementById('mapNote').value;
+  
+  const defaultSide = document.getElementById('excelDefaultSide').value;
+  const defaultOcc = document.getElementById('excelDefaultOccasion').value.trim() || 'زفاف إكرامي وفاطمة';
+  
+  const tbody = document.getElementById('excelPreviewBody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  // Preview first 3 rows
+  const previewRows = parsedExcelRows.slice(0, 3);
+  if (previewRows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--muted)">لا توجد صفوف للمعاينة</td></tr>';
+    return;
+  }
+
+  previewRows.forEach(row => {
+    const rawName = mapNameIdx !== '' ? String(row[mapNameIdx] || '').trim() : '';
+    
+    let rawAmt = 0;
+    if (mapAmtIdx !== '') {
+      const amtStr = String(row[mapAmtIdx]).replace(/[^\d.]/g, '');
+      rawAmt = parseFloat(amtStr) || 0;
+    }
+    
+    // Normalize Side
+    let sideVal = defaultSide;
+    if (mapSideIdx !== '-1' && mapSideIdx !== '') {
+      const rawSide = String(row[mapSideIdx] || '').toLowerCase().trim();
+      if (rawSide.includes('إكرامي') || rawSide.includes('اكرامي') || rawSide.includes('groom') || rawSide.includes('krami') || rawSide.includes('عريس')) {
+        sideVal = 'krami';
+      } else if (rawSide.includes('فاطمة') || rawSide.includes('فاطمه') || rawSide.includes('bride') || rawSide.includes('fatima') || rawSide.includes('عروس')) {
+        sideVal = 'fatima';
+      }
+    }
+    
+    const sideText = sideVal === 'krami' ? '🤵 إكرامي' : '👰 فاطمة';
+    const rawOcc = (mapOccIdx !== '-1' && mapOccIdx !== '') ? String(row[mapOccIdx] || '').trim() : defaultOcc;
+    const rawNote = (mapNoteIdx !== '-1' && mapNoteIdx !== '') ? String(row[mapNoteIdx] || '').trim() : '';
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${esc(rawName || '—')}</td>
+      <td><strong style="color:var(--gold)">${rawAmt ? rawAmt.toLocaleString('ar-EG') + ' ج' : '—'}</strong></td>
+      <td><span class="tbadge ${sideVal}">${sideText}</span></td>
+      <td><span class="tocc tocc-small">${esc(rawOcc || '—')}</span></td>
+      <td style="color:var(--muted)">${esc(rawNote || '—')}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function importMappedExcelData() {
+  const mapNameIdx = document.getElementById('mapName').value;
+  const mapAmtIdx = document.getElementById('mapAmount').value;
+  const mapSideIdx = document.getElementById('mapSide').value;
+  const mapOccIdx = document.getElementById('mapOccasion').value;
+  const mapNoteIdx = document.getElementById('mapNote').value;
+  
+  if (mapNameIdx === '' || mapAmtIdx === '') {
+    toast('⚠️ يرجى تحديد أعمدة الاسم والمبلغ للمواصلة');
+    return;
+  }
+
+  const defaultSide = document.getElementById('excelDefaultSide').value;
+  const defaultOcc = document.getElementById('excelDefaultOccasion').value.trim() || 'زفاف إكرامي وفاطمة';
+  const mergeExisting = document.getElementById('excelMergeExisting').checked;
+
+  let added = 0;
+  let merged = 0;
+  let skipped = 0;
+
+  parsedExcelRows.forEach(row => {
+    const name = String(row[mapNameIdx] || '').trim();
+    const rawAmtVal = String(row[mapAmtIdx] || '').replace(/[^\d.]/g, '');
+    const amount = parseFloat(rawAmtVal) || 0;
+
+    if (!name || amount <= 0) {
+      skipped++;
+      return;
+    }
+
+    // Determine Side
+    let side = defaultSide;
+    if (mapSideIdx !== '-1' && mapSideIdx !== '') {
+      const rawSide = String(row[mapSideIdx] || '').toLowerCase().trim();
+      if (rawSide.includes('إكرامي') || rawSide.includes('اكرامي') || rawSide.includes('groom') || rawSide.includes('krami') || rawSide.includes('عريس')) {
+        side = 'krami';
+      } else if (rawSide.includes('فاطمة') || rawSide.includes('فاطمه') || rawSide.includes('bride') || rawSide.includes('fatima') || rawSide.includes('عروس')) {
+        side = 'fatima';
+      }
+    }
+
+    const occasion = (mapOccIdx !== '-1' && mapOccIdx !== '') ? String(row[mapOccIdx] || '').trim() : defaultOcc;
+    const note = (mapNoteIdx !== '-1' && mapNoteIdx !== '') ? String(row[mapNoteIdx] || '').trim() : '';
+
+    let existingPerson = null;
+    if (mergeExisting) {
+      existingPerson = records.find(r => r.name.trim().toLowerCase() === name.toLowerCase() && r.side === side);
+    }
+
+    if (existingPerson) {
+      // Append gift to existing person
+      if (!existingPerson.received) existingPerson.received = [];
+      existingPerson.received.push({
+        id: uid(),
+        amount: amount,
+        occasion: occasion || defaultOcc,
+        date: new Date().toISOString().slice(0, 10),
+        note: note
+      });
+      // Append note to existing person if necessary
+      if (note) {
+        if (!existingPerson.note) {
+          existingPerson.note = note;
+        } else if (!existingPerson.note.includes(note)) {
+          existingPerson.note = `${existingPerson.note} | ${note}`;
+        }
+      }
+      merged++;
+    } else {
+      // Create new person
+      records.push({
+        id: uid(),
+        name,
+        side,
+        note,
+        returns: [],
+        received: [{
+          id: uid(),
+          amount: amount,
+          occasion: occasion || defaultOcc,
+          date: new Date().toISOString().slice(0, 10),
+          note: ''
+        }]
+      });
+      added++;
+    }
+  });
+
+  save();
+  render();
+  closeImport();
+  
+  let successMsg = `✅ تم الاستيراد بنجاح!`;
+  if (added > 0) successMsg += ` (تمت إضافة ${added} شخص)`;
+  if (merged > 0) successMsg += ` (تم دمج ${merged} هدية)`;
+  if (skipped > 0) successMsg += ` (تجاهل ${skipped} صفوف)`;
+  toast(successMsg);
+}
+
+function resetExcelImport() {
+  parsedExcelRows = [];
+  parsedExcelHeaders = [];
+  
+  const fileInput = document.getElementById('excelFileInput');
+  if (fileInput) fileInput.value = '';
+  
+  const mappingSection = document.getElementById('excelMappingSection');
+  const dropZone = document.getElementById('fileDropZone');
+  
+  if (mappingSection) mappingSection.style.display = 'none';
+  if (dropZone) dropZone.style.display = 'flex';
+}
 
 function doImport() {
   const raw = (document.getElementById('impTxt').value || '').trim();
-  if (!raw) { toast('⚠️ لا يوجد بيانات', 'warn'); return; }
+  if (!raw) { toast('⚠️ لا يوجد بيانات'); return; }
 
   let added = 0, skipped = 0;
   raw.split('\n').forEach(line => {
@@ -906,20 +1243,45 @@ function doImport() {
     const note = p[4] || '';
     if (!name || !amount || !['krami', 'fatima'].includes(side)) { skipped++; return; }
     
-    records.push({
-      id: uid(),
-      name,
-      side,
-      note,
-      returns: [],
-      received: [{
+    // Merge existing or add new
+    const mergeExisting = document.getElementById('excelMergeExisting')?.checked ?? true;
+    let existingPerson = null;
+    if (mergeExisting) {
+      existingPerson = records.find(r => r.name.trim().toLowerCase() === name.toLowerCase() && r.side === side);
+    }
+
+    if (existingPerson) {
+      if (!existingPerson.received) existingPerson.received = [];
+      existingPerson.received.push({
         id: uid(),
-        amount,
-        occasion,
+        amount: amount,
+        occasion: occasion,
         date: new Date().toISOString().slice(0, 10),
-        note: ''
-      }]
-    });
+        note: note
+      });
+      if (note) {
+        if (!existingPerson.note) {
+          existingPerson.note = note;
+        } else if (!existingPerson.note.includes(note)) {
+          existingPerson.note = `${existingPerson.note} | ${note}`;
+        }
+      }
+    } else {
+      records.push({
+        id: uid(),
+        name,
+        side,
+        note,
+        returns: [],
+        received: [{
+          id: uid(),
+          amount,
+          occasion,
+          date: new Date().toISOString().slice(0, 10),
+          note: ''
+        }]
+      });
+    }
     added++;
   });
 
