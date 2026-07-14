@@ -116,15 +116,27 @@ async function syncWithSupabase() {
     const d = getDeletions();
     if (d.people.length > 0) {
       const { error: delPeopleErr } = await supabaseClient.from('people').delete().in('id', d.people);
-      if (!delPeopleErr) d.people = [];
+      if (delPeopleErr) {
+        console.error("Error deleting people from Supabase:", delPeopleErr);
+      } else {
+        d.people = [];
+      }
     }
     if (d.received && d.received.length > 0) {
       const { error: delRecErr } = await supabaseClient.from('received_gifts').delete().in('id', d.received);
-      if (!delRecErr) d.received = [];
+      if (delRecErr) {
+        console.error("Error deleting received gifts from Supabase:", delRecErr);
+      } else {
+        d.received = [];
+      }
     }
     if (d.payments.length > 0) {
       const { error: delPayErr } = await supabaseClient.from('payments').delete().in('id', d.payments);
-      if (!delPayErr) d.payments = [];
+      if (delPayErr) {
+        console.error("Error deleting payments from Supabase:", delPayErr);
+      } else {
+        d.payments = [];
+      }
     }
     localStorage.setItem(DELETIONS_KEY, JSON.stringify(d));
 
@@ -142,6 +154,9 @@ async function syncWithSupabase() {
 
     // 3. Reconcile remote to local
     dbPeople.forEach(rp => {
+      // Skip if this person is marked for deletion locally
+      if (d.people.includes(rp.id)) return;
+
       let lp = records.find(x => x.id === rp.id);
       if (!lp) {
         lp = {
@@ -162,6 +177,9 @@ async function syncWithSupabase() {
       // Reconcile received gifts (ما أخذته منه)
       const rGifts = dbReceived.filter(x => x.person_id === rp.id);
       rGifts.forEach(rg => {
+        // Skip if this gift is marked for deletion locally
+        if (d.received && d.received.includes(rg.id)) return;
+
         let lpGift = lp.received.find(x => x.id === rg.id);
         if (!lpGift) {
           lp.received.push({
@@ -181,19 +199,22 @@ async function syncWithSupabase() {
 
       // Reconcile payments returned (ما رددته له)
       const rPays = dbPayments.filter(x => x.person_id === rp.id);
-      rPays.forEach(rp => {
-        let lpPay = lp.returns.find(x => x.id === rp.id);
+      rPays.forEach(pay => {
+        // Skip if this payment is marked for deletion locally
+        if (d.payments.includes(pay.id)) return;
+
+        let lpPay = lp.returns.find(x => x.id === pay.id);
         if (!lpPay) {
           lp.returns.push({
-            id: rp.id,
-            amount: +rp.amount,
-            date: rp.date,
-            note: rp.note || ''
+            id: pay.id,
+            amount: +pay.amount,
+            date: pay.date,
+            note: pay.note || ''
           });
         } else {
-          lpPay.amount = +rp.amount;
-          lpPay.date = rp.date;
-          lpPay.note = rp.note || '';
+          lpPay.amount = +pay.amount;
+          lpPay.date = pay.date;
+          lpPay.note = pay.note || '';
         }
       });
     });
