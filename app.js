@@ -104,6 +104,7 @@ function load() {
 
 // ── Supabase Sync Engine ─────────────────────────────────────
 let isSyncing = false;
+let lastLocalSyncTime = 0;
 async function syncWithSupabase() {
   if (!supabaseClient) return;
   if (isSyncing) return;
@@ -247,6 +248,7 @@ async function syncWithSupabase() {
     // Save final state back to LocalStorage and update UI
     localStorage.setItem(KEY, JSON.stringify(records));
     setSyncStatus('synced', '☁️ متصل بالسحاب ومُزامَن');
+    lastLocalSyncTime = Date.now();
     render();
   } catch (err) {
     console.error("Sync error", err);
@@ -255,6 +257,66 @@ async function syncWithSupabase() {
     isSyncing = false;
   }
 }
+
+
+// ── Realtime Synchronization & Event Debouncing ─────────────
+let realtimeChannel;
+let syncTimeout;
+
+function setupRealtime() {
+  if (!supabaseClient) return;
+
+  // If already subscribed, don't re-subscribe
+  if (realtimeChannel) return;
+
+  const handleChanges = (payload) => {
+    console.log('Realtime DB change event:', payload);
+    
+    // Ignore events from our own local writes (last 3.5 seconds) to prevent infinite sync loops
+    if (Date.now() - lastLocalSyncTime < 3500) {
+      console.log('Ignoring realtime event matching our own local write.');
+      return;
+    }
+    
+    debounceSync();
+  };
+
+  try {
+    realtimeChannel = supabaseClient
+      .channel('public-db-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'people' }, handleChanges)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'received_gifts' }, handleChanges)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, handleChanges)
+      .subscribe((status) => {
+        console.log('Realtime subscription status:', status);
+        if (status === 'SUBSCRIBED') {
+          console.log('Successfully connected to Supabase Realtime channel.');
+        }
+      });
+  } catch (e) {
+    console.error('Error setting up Supabase Realtime:', e);
+  }
+}
+
+function debounceSync() {
+  clearTimeout(syncTimeout);
+  syncTimeout = setTimeout(() => {
+    if (!isSyncing) {
+      console.log('Triggering debounced sync from Realtime event...');
+      syncWithSupabase();
+    }
+  }, 1500); // 1.5s delay to buffer multiple changes
+}
+
+// Re-sync when the page visibility changes (user locks/unlocks mobile or switches tabs)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    console.log('App visible, triggering sync...');
+    if (!isSyncing) {
+      syncWithSupabase();
+    }
+  }
+});
 
 
 function uid() {
@@ -1441,6 +1503,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Trigger Supabase Sync on Startup
   syncWithSupabase();
+
+  // Initialize Realtime Sync
+  setupRealtime();
 
   // Initialize Active Workspace
   switchWorkspace(localStorage.getItem('wm_workspace') || 'all');
