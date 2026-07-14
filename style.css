@@ -1479,3 +1479,247 @@ form {
   font-size: 0.72rem !important;
   padding: 0.1rem 0.4rem !important;
 }
+
+/* ══ IMPORT SYSTEM STYLES ═══════════════════════════════════ */
+.import-tabs {
+  display: flex;
+  gap: 0.5rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  padding: 0.25rem;
+  border-radius: 12px;
+  margin-bottom: 1.2rem;
+  backdrop-filter: blur(10px);
+}
+
+.import-tab {
+  flex: 1;
+  padding: 0.55rem 1rem;
+  border: none;
+  border-radius: 8px;
+  font-family: 'Cairo', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  color: var(--muted);
+  background: transparent;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.import-tab:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+}
+
+.import-tab.active {
+  background: linear-gradient(135deg, var(--gold), var(--gold2));
+  color: #000;
+  font-weight: 800;
+  box-shadow: 0 4px 12px rgba(244, 196, 48, 0.2);
+}
+
+/* File Drop Zone */
+.file-drop-zone {
+  border: 2px dashed rgba(255, 255, 255, 0.15);
+  border-radius: var(--r);
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.02);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  user-select: none;
+}
+
+.file-drop-zone:hover, .file-drop-zone.dragover {
+  border-color: var(--gold);
+  background: rgba(244, 196, 48, 0.05);
+  box-shadow: 0 8px 24px rgba(244, 196, 48, 0.1);
+}
+
+.fdz-icon {
+  font-size: 3.2rem;
+  animation: bounce 2s infinite;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.file-drop-zone h3 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.file-drop-zone p {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+/* Excel Info Card */
+.excel-info-card {
+  display: flex;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  padding: 0.8rem 1.2rem;
+  border-radius: var(--r);
+  margin-bottom: 1.2rem;
+  font-size: 0.85rem;
+}
+
+.excel-info-card strong {
+  color: var(--gold);
+}
+
+.section-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--gold);
+  margin: 1.2rem 0 0.6rem;
+  border-right: 3px solid var(--gold);
+  padding-right: 0.5rem;
+}
+
+/* Mapping Grid & Options */
+.mapping-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.8rem;
+  margin-bottom: 1.2rem;
+}
+
+.map-select {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  font-family: 'Cairo', sans-serif;
+  font-size: 0.85rem;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.map-select:focus {
+  border-color: var(--gold);
+}
+
+.req {
+  color: var(--red);
+  margin-right: 0.15rem;
+}
+
+.help-text {
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-top: 0.2rem;
+  display: block;
+}
+
+.options-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.8rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 1rem;
+  border-radius: var(--r);
+  margin-bottom: 1.2rem;
+}
+
+.fg-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  grid-column: 1 / -1;
+}
+
+.fg-row input[type="checkbox"] {
+  width: 17px;
+  height: 17px;
+  cursor: pointer;
+  accent-color: var(--gold);
+}
+
+.fg-row label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Preview Table */
+.preview-twrap {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  max-height: 180px;
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.preview-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: right;
+  font-size: 0.8rem;
+}
+
+.preview-table th {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--muted);
+  font-weight: 700;
+  padding: 0.5rem 0.8rem;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.preview-table td {
+  padding: 0.45rem 0.8rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  color: #fff;
+  white-space: nowrap;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.preview-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+@media (max-width: 480px) {
+  .import-tabs {
+    padding: 0.2rem;
+    border-radius: 10px;
+  }
+  .import-tab {
+    padding: 0.45rem 0.6rem;
+    font-size: 0.78rem;
+  }
+  .file-drop-zone {
+    padding: 1.8rem 1rem;
+  }
+  .file-drop-zone h3 {
+    font-size: 1rem;
+  }
+  .excel-info-card {
+    flex-direction: column;
+    gap: 0.3rem;
+    padding: 0.6rem 0.8rem;
+  }
+  .mapping-grid {
+    grid-template-columns: 1fr;
+  }
+}
