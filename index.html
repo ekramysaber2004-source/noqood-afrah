@@ -36,7 +36,7 @@
       <div class="htext">
         <h1 class="htitle">نقود الأفراح</h1>
         <p class="hsub">تسجيل وإدارة هدايا الجواز</p>
-        <span id="syncStatus" style="font-size:0.75rem; color:#94a3b8; display:inline-flex; align-items:center; gap:0.25rem;">☁️ جاري المزامنة...</span>
+        <span id="syncStatus" onclick="syncWithSupabase()" style="font-size:0.75rem; color:#94a3b8; display:inline-flex; align-items:center; gap:0.25rem; cursor:pointer;" title="اضغط للتحديث اليدوي">☁️ جاري المزامنة...</span>
       </div>
       <!-- PWA Install Button -->
       <button class="install-btn" id="installBtn" style="display:none" onclick="installApp()">
