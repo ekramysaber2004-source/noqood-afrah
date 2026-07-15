@@ -3,7 +3,7 @@
 //   Caches all app files for offline use
 // ============================================================
 
-const CACHE_NAME = 'afrah-v5';
+const CACHE_NAME = 'afrah-v6';
 const ASSETS = [
   './',
   './index.html',
