@@ -114,38 +114,31 @@ async function syncWithSupabase() {
   if (!supabaseClient) return;
   if (isSyncing) return;
   isSyncing = true;
+  lastLocalSyncTime = Date.now(); // Mark local write/sync time immediately to block realtime echoes
   setSyncStatus('syncing', '🔄 جاري المزامنة مع السحاب...');
 
   try {
-    // 1. Process tracked deletions first
     const d = getDeletions();
+    // Keep local copies of deletions to filter out fetched items during this sync cycle
+    const deletedPeopleIds = [...d.people];
+    const deletedReceivedIds = [...(d.received || [])];
+    const deletedPaymentsIds = [...d.payments];
+
+    // 1. Process tracked deletions
     if (d.people.length > 0) {
       const { error: delPeopleErr } = await supabaseClient.from('people').delete().in('id', d.people);
-      if (delPeopleErr) {
-        console.error("Error deleting people from Supabase:", delPeopleErr);
-      } else {
-        d.people = [];
-      }
+      if (delPeopleErr) console.error("Error deleting people from Supabase:", delPeopleErr);
     }
     if (d.received && d.received.length > 0) {
       const { error: delRecErr } = await supabaseClient.from('received_gifts').delete().in('id', d.received);
-      if (delRecErr) {
-        console.error("Error deleting received gifts from Supabase:", delRecErr);
-      } else {
-        d.received = [];
-      }
+      if (delRecErr) console.error("Error deleting received gifts from Supabase:", delRecErr);
     }
     if (d.payments.length > 0) {
       const { error: delPayErr } = await supabaseClient.from('payments').delete().in('id', d.payments);
-      if (delPayErr) {
-        console.error("Error deleting payments from Supabase:", delPayErr);
-      } else {
-        d.payments = [];
-      }
+      if (delPayErr) console.error("Error deleting payments from Supabase:", delPayErr);
     }
-    localStorage.setItem(DELETIONS_KEY, JSON.stringify(d));
 
-    // 2. Fetch remote records from all 3 tables
+    // 2. Fetch remote records
     const { data: dbPeople, error: pe } = await supabaseClient.from('people').select('*');
     const { data: dbReceived, error: re } = await supabaseClient.from('received_gifts').select('*');
     const { data: dbPayments, error: payE } = await supabaseClient.from('payments').select('*');
@@ -157,11 +150,16 @@ async function syncWithSupabase() {
       return;
     }
 
-    // 3. Reconcile remote to local
-    dbPeople.forEach(rp => {
-      // Skip if this person is marked for deletion locally
-      if (d.people.includes(rp.id)) return;
+    // Filter out fetched remote items that are marked for deletion locally
+    const filteredDbPeople = dbPeople.filter(rp => !deletedPeopleIds.includes(rp.id));
+    const filteredDbReceived = dbReceived.filter(rg => !deletedReceivedIds.includes(rg.id));
+    const filteredDbPayments = dbPayments.filter(rp => !deletedPaymentsIds.includes(rp.id));
 
+    // Remove deleted people from local records array just in case
+    records = records.filter(r => !deletedPeopleIds.includes(r.id));
+
+    // 3. Reconcile remote to local
+    filteredDbPeople.forEach(rp => {
       let lp = records.find(x => x.id === rp.id);
       if (!lp) {
         lp = {
@@ -179,12 +177,9 @@ async function syncWithSupabase() {
         lp.note = rp.note || '';
       }
 
-      // Reconcile received gifts (ما أخذته منه)
-      const rGifts = dbReceived.filter(x => x.person_id === rp.id);
+      // Reconcile received gifts
+      const rGifts = filteredDbReceived.filter(x => x.person_id === rp.id);
       rGifts.forEach(rg => {
-        // Skip if this gift is marked for deletion locally
-        if (d.received && d.received.includes(rg.id)) return;
-
         let lpGift = lp.received.find(x => x.id === rg.id);
         if (!lpGift) {
           lp.received.push({
@@ -202,12 +197,15 @@ async function syncWithSupabase() {
         }
       });
 
-      // Reconcile payments returned (ما رددته له)
-      const rPays = dbPayments.filter(x => x.person_id === rp.id);
-      rPays.forEach(pay => {
-        // Skip if this payment is marked for deletion locally
-        if (d.payments.includes(pay.id)) return;
+      // Remove any locally stored gifts that are not on the server anymore (unless marked for deletion)
+      lp.received = lp.received.filter(lg => {
+        if (deletedReceivedIds.includes(lg.id)) return false;
+        return rGifts.some(rg => rg.id === lg.id) || lg.id.startsWith('local_'); // Keep local unsynced if any
+      });
 
+      // Reconcile payments returned
+      const rPays = filteredDbPayments.filter(x => x.person_id === rp.id);
+      rPays.forEach(pay => {
         let lpPay = lp.returns.find(x => x.id === pay.id);
         if (!lpPay) {
           lp.returns.push({
@@ -222,6 +220,17 @@ async function syncWithSupabase() {
           lpPay.note = pay.note || '';
         }
       });
+
+      // Remove any locally stored returns that are not on server
+      lp.returns = lp.returns.filter(lp => {
+        if (deletedPaymentsIds.includes(lp.id)) return false;
+        return rPays.some(rp => rp.id === lp.id);
+      });
+    });
+
+    // Remove any local records that don't exist on server and aren't newly added locally (without syncing)
+    records = records.filter(lr => {
+      return filteredDbPeople.some(rp => rp.id === lr.id);
     });
 
     // 4. Push local changes to remote
@@ -270,6 +279,9 @@ async function syncWithSupabase() {
         await supabaseClient.from('payments').upsert(paymentsToUpsert);
       }
     }
+
+    // 5. Clear the deletions track ONLY after sync successfully completed
+    clearDeletionsTrack();
 
     // Save final state back to LocalStorage and update UI
     localStorage.setItem(KEY, JSON.stringify(records));
@@ -691,7 +703,10 @@ function saveMain(e) {
 function del(id) {
   const r = records.find(x => x.id === id);
   if (!r) return;
-  if (!confirm(`هل تحذف "${r.name}" (${r.amount} ج)؟`)) return;
+  if (!confirm(`هل تحذف "${r.name}" (${totalReceived(r)} ج)؟`)) return;
+  
+  lastLocalSyncTime = Date.now(); // Block realtime events during deletion
+  
   // Track deletions for Cloud sync
   trackPersonDeletion(id);
   r.returns.forEach(x => trackPaymentDeletion(x.id));
@@ -704,10 +719,14 @@ function del(id) {
 
 function clearAll() {
   if (!confirm('⚠️ هل تمسح كل البيانات نهائياً؟')) return;
+  
+  lastLocalSyncTime = Date.now(); // Block realtime events during clear
+  
   // Track all deletions for Cloud sync
   records.forEach(r => {
     trackPersonDeletion(r.id);
     r.returns.forEach(x => trackPaymentDeletion(x.id));
+    (r.received || []).forEach(x => trackReceivedDeletion(x.id));
   });
   records = [];
   save(); render();
@@ -844,6 +863,9 @@ function delReceive(rid, xid) {
     return;
   }
   if (!confirm('هل تحذف مناسبة الاستلام هذه؟')) return;
+  
+  lastLocalSyncTime = Date.now(); // Block realtime events during deletion
+  
   trackReceivedDeletion(xid);
   r.received = r.received.filter(x => x.id !== xid);
   save(); render();
@@ -968,6 +990,9 @@ function delFromHistory(rid, xid) {
   if (!confirm('حذف هذه الدفعة من السجل؟')) return;
   const r = records.find(x => x.id === rid);
   if (!r) return;
+  
+  lastLocalSyncTime = Date.now(); // Block realtime events during deletion
+  
   trackPaymentDeletion(xid);
   r.returns = r.returns.filter(x => x.id !== xid);
   save(); render(); openHistory(rid); // refresh
