@@ -16,51 +16,57 @@ const ASSETS = [
   'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
 ];
 
-// Install: cache all assets
+// Install: skip waiting immediately
 self.addEventListener('install', e => {
-  e.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      return cache.addAll(ASSETS).catch(() => {
-        // Fonts may fail in some environments, that's OK
-        return cache.addAll(ASSETS.filter(a => !a.includes('googleapis')));
-      });
-    })
-  );
   self.skipWaiting();
 });
 
-// Activate: clean old caches
+// Activate: delete all caches to clear corrupt states
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+      Promise.all(keys.map(k => caches.delete(k)))
     )
   );
   self.clients.claim();
 });
 
-// Fetch: serve from cache first, fallback to network
+// Fetch: network-first for index and scripts, fallback only if offline
 self.addEventListener('fetch', e => {
-  // Skip non-GET and cross-origin requests we can't cache, and skip Supabase endpoints
   if (e.request.method !== 'GET') return;
   if (e.request.url.includes('supabase.co')) return;
 
-  e.respondWith(
-    caches.match(e.request).then(cached => {
-      if (cached) return cached;
-      return fetch(e.request).then(response => {
-        // Cache successful same-origin responses
+  // For app scripts and HTML, try network first. Only use cache if network fails.
+  const isWebAsset = e.request.url.includes('app.js') || 
+                     e.request.url.includes('index.html') || 
+                     e.request.url.includes('manifest.json') ||
+                     e.request.destination === 'document';
+
+  if (isWebAsset) {
+    e.respondWith(
+      fetch(e.request).then(response => {
         if (response && response.status === 200 && response.type === 'basic') {
           const clone = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
+          caches.open('afrah-v7').then(cache => cache.put(e.request, clone));
         }
         return response;
       }).catch(() => {
-        // Offline fallback: return the cached index.html
-        if (e.request.destination === 'document') {
-          return caches.match('./index.html');
-        }
-      });
-    })
-  );
+        return caches.match(e.request);
+      })
+    );
+  } else {
+    // Normal cache-first for static fonts and library assets
+    e.respondWith(
+      caches.match(e.request).then(cached => {
+        if (cached) return cached;
+        return fetch(e.request).then(response => {
+          if (response && response.status === 200) {
+            const clone = response.clone();
+            caches.open('afrah-v7').then(cache => cache.put(e.request, clone));
+          }
+          return response;
+        });
+      })
+    );
+  }
 });
