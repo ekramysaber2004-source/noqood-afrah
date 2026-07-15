@@ -2,31 +2,22 @@
   "name": "نقود الأفراح",
   "short_name": "أفراح",
   "description": "تسجيل وإدارة هدايا الجواز - كرامي وفاطمة",
-  "start_url": "./index.html",
+  "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0d0d1b",
   "theme_color": "#f4c430",
   "lang": "ar",
   "dir": "rtl",
-  "categories": ["finance", "lifestyle"],
+  "categories": [
+    "finance",
+    "lifestyle"
+  ],
   "icons": [
     {
       "src": "icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
       "purpose": "any maskable"
     }
   ],
@@ -35,8 +26,13 @@
       "name": "إضافة شخص",
       "short_name": "إضافة",
       "description": "إضافة شخص جديد",
-      "url": "./index.html#add",
-      "icons": [{ "src": "icon.svg", "sizes": "any" }]
+      "url": "/#add",
+      "icons": [
+        {
+          "src": "icon.svg",
+          "sizes": "any"
+        }
+      ]
     }
   ]
 }
