@@ -9,10 +9,7 @@
   "theme_color": "#f4c430",
   "lang": "ar",
   "dir": "rtl",
-  "categories": [
-    "finance",
-    "lifestyle"
-  ],
+  "categories": ["finance", "lifestyle"],
   "icons": [
     {
       "src": "icon.svg",
@@ -27,12 +24,7 @@
       "short_name": "إضافة",
       "description": "إضافة شخص جديد",
       "url": "/#add",
-      "icons": [
-        {
-          "src": "icon.svg",
-          "sizes": "any"
-        }
-      ]
+      "icons": [{ "src": "icon.svg", "sizes": "any" }]
     }
   ]
 }
